@@ -4,259 +4,201 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard Suhu Ruang Operasi</title>
- <!-- ICON HALAMAN -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌡️</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Manrope:wght@400;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
   <style>
+    /* ===== Glass IoT Dashboard (skill glass-iot-dashboard) ===== */
+    /* Hanya tampilan yang diubah. Logika di bawah (sources, refresh 10 detik,
+       parsing CSV, aturan status, localStorage "theme", semua ID elemen,
+       batas stale 30 menit) sama persis dengan dashboard sebelumnya. */
     :root {
-      --bg: #f5f7fa;
-      --text: #333;
-      --card: #fff;
-      --card-shadow: rgba(0,0,0,0.08);
-      --table-head: #f0f2f5;
-      --table-border: #eaeaea;
-      --accent: #2c3e50;
-      --accent-light: #3498db;
+      --bg:#e8f1f4; --text:#0e2229; --muted:#59727b;
+      --card:rgba(255,255,255,.72); --card-border:rgba(255,255,255,.9);
+      --card-shadow:rgba(10,60,80,.14);
+      --tile:rgba(255,255,255,.8); --tile-border:rgba(14,138,154,.16);
+      --accent:#0b5563; --accent-light:#0e8a9a;
+      --glow-a:rgba(14,190,210,.38); --glow-b:rgba(70,110,255,.26); --glow-c:rgba(30,200,150,.26);
+      --ok:#17a673;
     }
     body.dark {
-      --bg: #111;
-      --text: #eee;
-      --card: #1e1e1e;
-      --card-shadow: rgba(0,0,0,0.4);
-      --table-head: #2a2a2a;
-      --table-border: #333;
-      --accent: #ecf0f1;
-      --accent-light: #3498db;
+      --bg:#060d11; --text:#e6f1f4; --muted:#84a0a9;
+      --card:rgba(16,30,37,.72); --card-border:rgba(255,255,255,.07);
+      --card-shadow:rgba(0,0,0,.6);
+      --tile:rgba(255,255,255,.035); --tile-border:rgba(255,255,255,.07);
+      --accent:#e6f1f4; --accent-light:#3cc9d9;
+      --glow-a:rgba(14,190,210,.2); --glow-b:rgba(80,90,255,.18); --glow-c:rgba(20,180,130,.14);
     }
 
+    * { box-sizing: border-box; }
     body {
-      margin: 0;
-      padding: 20px;
-      font-family: "Segoe UI", sans-serif;
-      background: var(--bg);
-      color: var(--text);
+      margin: 0; padding: 20px;
+      font-family: "Manrope", "Segoe UI", system-ui, sans-serif;
+      background: var(--bg); color: var(--text);
       transition: background 0.3s, color 0.3s;
     }
+    /* Aurora + grid blueprint */
+    body::before { content:""; position:fixed; inset:0; z-index:-1; background:
+      radial-gradient(40vw 40vw at 8% 0%, var(--glow-a), transparent 70%),
+      radial-gradient(45vw 45vw at 95% 20%, var(--glow-b), transparent 70%),
+      radial-gradient(40vw 40vw at 50% 105%, var(--glow-c), transparent 70%); }
+    body::after { content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
+      background-image: linear-gradient(rgba(14,138,154,.07) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(14,138,154,.07) 1px, transparent 1px);
+      background-size: 44px 44px;
+      mask-image: linear-gradient(180deg, #000, transparent 70%);
+      -webkit-mask-image: linear-gradient(180deg, #000, transparent 70%); }
 
-    /* ===== HEADER ===== */
-    .header {
-      text-align: center;
-      padding: 25px 15px 15px;
-      border-bottom: 2px solid var(--accent-light);
-    }
+    .wrap { max-width: 1120px; margin: 0 auto; }
+    :focus-visible { outline: 3px solid var(--accent-light); outline-offset: 2px; }
+
+    /* ===== Header ===== */
+    .header { text-align: center; padding: 25px 15px 8px; }
     .header h1 {
-      margin: 0;
-      font-size: 2em;
-      font-weight: 700;
-      color: var(--accent);
-      letter-spacing: 1px;
+      margin: 0; font-family: "Space Grotesk", "Manrope", sans-serif;
+      font-size: clamp(1.8rem, 5vw, 3rem); font-weight: 700;
+      letter-spacing: -0.02em; color: var(--accent);
     }
-    .header p {
-      margin: 5px 0 0;
-      font-size: 1em;
-      color: var(--accent-light);
-      font-style: italic;
+    .header p { margin: 8px 0 0; font-size: 1em; color: var(--muted); font-style: italic; }
+    .live-pill {
+      display: inline-flex; align-items: center; gap: 8px; margin-top: 12px;
+      padding: 6px 14px; border-radius: 999px; font-size: .85em; font-weight: 700;
+      background: var(--card); border: 1px solid var(--card-border);
+      backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%);
     }
+    .live-pill::before { content:""; width: 8px; height: 8px; border-radius: 50%;
+      background: #17a673; box-shadow: 0 0 0 0 rgba(23,166,115,.6);
+      animation: ping 1.8s infinite; }
+    @keyframes ping { 0% { box-shadow: 0 0 0 0 rgba(23,166,115,.6); } 70% { box-shadow: 0 0 0 9px rgba(23,166,115,0); } 100% { box-shadow: 0 0 0 0 rgba(23,166,115,0); } }
+
     .summary {
-      text-align: center;
-      font-weight: bold;
-      margin: 15px 0 5px;
-      font-size: 1.05em;
+      text-align: center; font-weight: 700; margin: 15px auto 20px; font-size: 1.05em;
+      display: table; padding: 10px 18px; border-radius: 999px;
+      background: var(--card); border: 1px solid var(--card-border);
+      backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%);
+      box-shadow: 0 12px 30px -18px var(--card-shadow);
     }
 
-    /* ===== FOOTER ===== */
-    .footer {
-      text-align: center;
-      padding: 15px;
-      margin-top: 30px;
-      font-size: 0.9em;
-      color: var(--accent);
-      border-top: 1px solid var(--table-border);
-    }
-    body.dark .footer {
-      color: var(--accent-light);
-    }
+    /* ===== Footer ===== */
+    .footer { text-align: center; padding: 15px; margin-top: 30px; font-size: 0.9em; color: var(--muted); }
 
-    /* Tombol dark mode pojok kanan */
-    .toggle-dark {
-      position: fixed;
-      top: 15px;
-      right: 15px;
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      border: none;
-      background: #3498db;
-      color: #fff;
-      font-size: 18px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-      transition: background 0.3s, transform 0.2s;
-      z-index: 1000;
+    /* ===== Tombol ===== */
+    .toggle-dark, .toggle-full {
+      position: fixed; top: 15px; width: 44px; height: 44px; border-radius: 14px;
+      border: 1px solid var(--card-border); cursor: pointer; font-size: 18px;
+      display: flex; align-items: center; justify-content: center; z-index: 1000;
+      background: var(--card); color: var(--text);
+      backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%);
+      box-shadow: 0 12px 30px -18px var(--card-shadow);
+      transition: transform 0.2s;
     }
-    .toggle-dark:hover { background: #2980b9; transform: rotate(15deg); }
-    .toggle-full {
-      position: fixed;
-      top: 15px;
-      right: 65px;
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      border: none;
-      background: #3498db;
-      color: #fff;
-      font-size: 18px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-      z-index: 1000;
-    }
-    .toggle-full:hover { background: #2980b9; }
+    .toggle-dark { right: 15px; }
+    .toggle-full { right: 71px; }
+    .toggle-dark:hover { transform: rotate(15deg); }
+    .toggle-full:hover { transform: scale(1.06); }
 
+    /* ===== Kartu kaca ===== */
     .card {
-      background: var(--card);
-      border-radius: 14px;
-      box-shadow: 0 4px 10px var(--card-shadow);
-      margin-bottom: 20px;
-      padding: 18px;
+      position: relative; background: var(--card); border: 1px solid var(--card-border);
+      border-radius: 22px; box-shadow: 0 24px 50px -24px var(--card-shadow);
+      backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%);
+      padding: 24px; margin-bottom: 22px; overflow: hidden;
       transition: transform 0.2s, background 0.3s;
     }
+    .card::before { content:""; position: absolute; left: 0; right: 0; top: 0; height: 3px;
+      background: linear-gradient(90deg, transparent, var(--ok), var(--accent-light), transparent); }
     .card:hover { transform: translateY(-3px); }
 
     .card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-weight: bold;
-      font-size: 1.1em;
-      margin-bottom: 8px;
+      display: flex; justify-content: space-between; align-items: center;
+      font-family: "Space Grotesk", "Manrope", sans-serif;
+      font-weight: 700; font-size: 1.25em; margin-bottom: 8px;
     }
+    .last-update { font-size: 0.9em; color: var(--muted); margin-bottom: 16px; }
 
-    .last-update {
-      font-size: 0.9em;
-      color: #777;
-      margin-bottom: 12px;
+    /* ===== Tile ===== */
+    .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+    .tile {
+      padding: 14px 16px 16px; background: var(--tile); border: 1px solid var(--tile-border);
+      border-radius: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0;
     }
-    body.dark .last-update { color: #aaa; }
-
-    /* Angka besar, supaya suhu terbaca dari jauh (tambahan dari versi tandon) */
-    .big-read {
-      display: flex;
-      gap: 24px;
-      flex-wrap: wrap;
-      align-items: center;
-      margin-bottom: 12px;
+    .tile-label { display: flex; align-items: center; gap: 7px; font-size: .8em; font-weight: 600; color: var(--muted); }
+    .tile-value {
+      font-family: "JetBrains Mono", ui-monospace, monospace; font-weight: 600;
+      font-variant-numeric: tabular-nums; overflow-wrap: anywhere; font-size: 1.05em;
     }
-    .big-label { font-size: 0.85em; color: #777; }
-    body.dark .big-label { color: #aaa; }
-    .big-value { font-size: 2em; font-weight: 700; line-height: 1.1; }
-    .big-value small { font-size: 0.5em; font-weight: 600; }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.9em;
-    }
-    th, td {
-      padding: 8px 10px;
-      border-bottom: 1px solid var(--table-border);
-      text-align: center;
-    }
-    th {
-      background: var(--table-head);
-      font-weight: 600;
-    }
-    tr:hover td { background: rgba(0,0,0,0.03); }
-    body.dark tr:hover td { background: rgba(255,255,255,0.05); }
-
-    .badge {
-      padding: 3px 8px;
-      border-radius: 6px;
-      font-weight: bold;
-      font-size: 0.85em;
-      color: #fff;
-      display: inline-block;
-      min-width: 60px;
-    }
-    /* Warna sesuai permintaan - dipertahankan dari dashboard tandon */
-    .on        { background: #27ae60; }
-    .off       { background: #e74c3c; }
-    .rendah    { background: #e74c3c; }
-    .normal    { background: #2980b9; }
-    .penuh     { background: #f1c40f; color:#000; }
-    .mcb-normal{ background: #2980b9; }
-    .trip      { background: #f1c40f; color:#000; }
-    /* Badge khusus suhu ruang operasi */
-    .aman      { background: #27ae60; }
-    .alarm     { background: #e74c3c; }
-    .dingin    { background: #2980b9; }
-    .panas     { background: #e74c3c; }
-    .kering    { background: #f1c40f; color:#000; }
-    .lembab    { background: #2980b9; }
-
-    .loader {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: #3498db;
-      animation: pulse 1s infinite;
-    }
-    @keyframes pulse {
-      0%,100% { transform: scale(1); opacity: .6; }
-      50% { transform: scale(1.5); opacity: 1; }
-    }
-
-    .changed {
-      animation: flashChange 1.5s ease-in-out;
-    }
-    @keyframes flashChange {
-      0%   { background: rgba(52,152,219,0.2); }
-      50%  { background: rgba(52,152,219,0.6); }
-      100% { background: transparent; }
-    }
-
-    .stale-card{border:3px solid #e53935!important;box-shadow:0 0 18px rgba(229,57,53,.35);}
-    .stale-update{background:#e53935;color:#fff!important;padding:8px 12px;border-radius:8px;font-weight:bold;animation:blinkRed 1s infinite;}
-    @keyframes blinkRed{0%,100%{opacity:1;}50%{opacity:.45;}}
-
+    .tile-value.big { font-size: 1.9em; line-height: 1.1; }
+    .big-tiles { margin-bottom: 12px; }
     @media (max-width: 768px) {
-      table, th, td { font-size: 0.8em; }
-      .big-value { font-size: 1.6em; }
+      .tiles { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+      .tile-value.big { font-size: 1.5em; }
+      body { padding: 14px; }
+      .card { padding: 18px; }
     }
 
-    .table-container {
-      width: 100%;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
+    /* ===== Badge ===== */
+    .badge {
+      padding: 6px 14px 6px 11px; border-radius: 999px; font-weight: 700; font-size: .9em;
+      color: #fff; display: inline-flex; align-items: center; gap: 8px; align-self: flex-start;
     }
-    .table-container table {
-      min-width: 500px;
+    .badge::before { content:""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
+    .on, .aman          { background: #1f9d57; box-shadow: 0 6px 16px -6px #1f9d57; }
+    .off, .alarm, .panas{ background: #d93a2f; box-shadow: 0 6px 16px -6px #d93a2f; }
+    .rendah             { background: #d93a2f; box-shadow: 0 6px 16px -6px #d93a2f; }
+    .normal, .mcb-normal, .dingin, .lembab { background: #1f6fb5; box-shadow: 0 6px 16px -6px #1f6fb5; }
+    .penuh, .trip, .kering { background: #f2c21b; color: #000; box-shadow: 0 6px 16px -6px #f2c21b; }
+
+    .loader { width: 10px; height: 10px; border-radius: 50%; background: var(--accent-light); animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100% { transform: scale(1); opacity: .6; } 50% { transform: scale(1.5); opacity: 1; } }
+
+    .changed { animation: flashChange 1.5s ease-in-out; }
+    @keyframes flashChange {
+      0% { background: rgba(14,190,210,.18); box-shadow: 0 0 0 0 rgba(14,190,210,.6); }
+      50% { background: rgba(14,190,210,.45); box-shadow: 0 0 0 6px rgba(14,190,210,0); }
+      100% { background: var(--tile); }
+    }
+
+    .stale-card { border: 2px solid #e53935 !important; box-shadow: 0 0 34px rgba(229,57,53,.35); }
+    .stale-card::before { background: linear-gradient(90deg, transparent, #e53935, transparent); height: 4px; }
+    .stale-update { background: #e53935; color: #fff !important; padding: 10px 14px; border-radius: 12px; font-weight: 700; animation: blinkRed 1s infinite; }
+    @keyframes blinkRed { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
     }
   </style>
 </head>
 <body>
+  <div class="wrap">
   <!-- Tombol Dark Mode & Fullscreen -->
-  <button class="toggle-full" onclick="toggleFullscreen()" title="Fullscreen">⛶</button>
-  <button class="toggle-dark" onclick="toggleDarkMode()">🌙</button>
+  <button class="toggle-full" onclick="toggleFullscreen()" title="Fullscreen" aria-label="Fullscreen">⛶</button>
+  <button class="toggle-dark" onclick="toggleDarkMode()" aria-label="Ganti tema terang atau gelap">🌙</button>
 
   <!-- HEADER -->
   <div class="header">
     <h1>🌡️ Monitoring Suhu Ruang Operasi</h1>
     <p>Sistem Pemantauan Cerdas Real-time &bull; Suhu 19&ndash;24 &deg;C &bull; Kelembaban 45&ndash;60%</p>
+    <div><span class="live-pill">Real-time</span></div>
   </div>
   <div class="summary" id="summary">Memuat data...</div>
 
   <div class="card" id="section-ok1">
     <div class="card-header">📍 Ruang Operasi 1 <div class="loader" id="loader-ok1"></div></div>
     <div class="last-update" id="update-ok1">Terakhir update: -</div>
-    <div class="big-read">
-      <div><div class="big-label">Suhu</div><div class="big-value" id="suhu-ok1">-- <small>&deg;C</small></div></div>
-      <div><div class="big-label">Kelembaban</div><div class="big-value" id="lembab-ok1">-- <small>%</small></div></div>
-      <div><div class="big-label">Status</div><div><span class="badge aman" id="status-ok1">-</span></div></div>
+    <div class="tiles big-tiles">
+      <div class="tile">
+        <div class="tile-label"><span>🌡️</span>Suhu</div>
+        <div class="tile-value big" id="suhu-ok1">--</div>
+      </div>
+      <div class="tile">
+        <div class="tile-label"><span>💧</span>Kelembaban</div>
+        <div class="tile-value big" id="lembab-ok1">--</div>
+      </div>
+      <div class="tile">
+        <div class="tile-label"><span>✅</span>Status</div>
+        <div class="tile-value"><span class="badge aman" id="status-ok1">-</span></div>
+      </div>
     </div>
     <div id="table-ok1">Memuat data...</div>
   </div>
@@ -264,10 +206,19 @@
   <div class="card" id="section-ok2">
     <div class="card-header">📍 Ruang Operasi 2 <div class="loader" id="loader-ok2"></div></div>
     <div class="last-update" id="update-ok2">Terakhir update: -</div>
-    <div class="big-read">
-      <div><div class="big-label">Suhu</div><div class="big-value" id="suhu-ok2">-- <small>&deg;C</small></div></div>
-      <div><div class="big-label">Kelembaban</div><div class="big-value" id="lembab-ok2">-- <small>%</small></div></div>
-      <div><div class="big-label">Status</div><div><span class="badge aman" id="status-ok2">-</span></div></div>
+    <div class="tiles big-tiles">
+      <div class="tile">
+        <div class="tile-label"><span>🌡️</span>Suhu</div>
+        <div class="tile-value big" id="suhu-ok2">--</div>
+      </div>
+      <div class="tile">
+        <div class="tile-label"><span>💧</span>Kelembaban</div>
+        <div class="tile-value big" id="lembab-ok2">--</div>
+      </div>
+      <div class="tile">
+        <div class="tile-label"><span>✅</span>Status</div>
+        <div class="tile-value"><span class="badge aman" id="status-ok2">-</span></div>
+      </div>
     </div>
     <div id="table-ok2">Memuat data...</div>
   </div>
@@ -276,6 +227,7 @@
   <div class="footer">
     ⚡ Dibuat oleh <b>Instalasi Pemelihara Sarana (IPS)</b><br>
     Rumah Sakit Adi Husada Kapasari
+  </div>
   </div>
 
   <script>
@@ -304,8 +256,9 @@ const MAX_DELAY_MINUTES=30;
     // Kolom CSV dari Code.gs (A-I, 9 kolom):
     // 0 Waktu, 1 Ruangan, 2 Suhu ("22 °C"), 3 Kelembaban ("55 %"), 4 Status,
     // 5 Status Suhu, 6 Status Kelembaban, 7 RSSI ("-67 dBm"), 8 IP Address
-    // Di tabel, kolom Ruangan (1) tidak ditampilkan karena kartu
-    // sudah menulis nama ruangannya.
+    // Kolom Ruangan (1) tidak ditampilkan karena kartu sudah menulis
+    // nama ruangannya. Suhu (2), Kelembaban (3) dan Status (4) tampil
+    // di tile besar di atas; sisanya dirender createTableHTML sebagai tile.
     const DISPLAY_IDX = [0, 2, 3, 4, 5, 6, 7, 8];
 
     function applyStatus(val, key, i) {
@@ -328,11 +281,26 @@ function getHeaders(key) {
   return ["Waktu","Suhu","Kelembaban","Status","Status Suhu","Status Kelembaban","RSSI","IP Address"];
 }
 
+    function flashTile(el, changed) {
+      if (!changed || !el) return;
+      const tile = el.closest(".tile") || el;
+      tile.classList.remove("changed");
+      void tile.offsetWidth;
+      tile.classList.add("changed");
+    }
+
     function updateBigReadout(key, cells) {
       const suhuEl = document.getElementById("suhu-" + key);
       const lembabEl = document.getElementById("lembab-" + key);
       const statusEl = document.getElementById("status-" + key);
       if (!suhuEl || !cells || cells.length < 7) return;
+      // Flash 1,5 detik kalau nilainya berubah dari poll sebelumnya
+      flashTile(suhuEl, lastData[key][2] !== undefined && lastData[key][2] !== cells[2]);
+      flashTile(lembabEl, lastData[key][3] !== undefined && lastData[key][3] !== cells[3]);
+      flashTile(statusEl, lastData[key][4] !== undefined && lastData[key][4] !== cells[4]);
+      lastData[key][2] = cells[2];
+      lastData[key][3] = cells[3];
+      lastData[key][4] = cells[4];
       // cells[2] sudah "22 °C" dari Sheet, jangan tambah °C lagi
       suhuEl.textContent = cells[2];
       // cells[3] sudah "55 %" dari Sheet, jangan tambah % lagi
@@ -350,26 +318,29 @@ function getHeaders(key) {
       el.textContent = "Ruang Operasi 1: " + roomStatus.ok1 + "  •  Ruang Operasi 2: " + roomStatus.ok2;
     }
 
+    // Ikon per kolom (hanya tampilan; urutan dan isi tetap dari DISPLAY_IDX)
+    const TILE_ICONS = { 0: "🕒", 5: "🌡️", 6: "💧", 7: "📶", 8: "🌐" };
+
     function createTableHTML(dataArr, key) {
       if (!dataArr.length) return "Data tidak tersedia.";
       const headers = getHeaders(key);
       const cells = dataArr[0].split(",");
 
-      const rowHTML = DISPLAY_IDX.map((csvIdx, j) => {
+      // Hanya kolom yang belum tampil di tile besar (0, 5, 6, 7, 8).
+      // Dulu tabel, sekarang tile - data, urutan dan aturan status sama.
+      const tilesHTML = DISPLAY_IDX.filter(csvIdx => csvIdx !== 2 && csvIdx !== 3 && csvIdx !== 4).map((csvIdx) => {
+        const j = DISPLAY_IDX.indexOf(csvIdx);
         const val = (cells[csvIdx] || "").trim();
         const status = applyStatus(val, key, csvIdx);
         const changed = lastData[key][csvIdx] !== undefined && lastData[key][csvIdx] !== val;
         lastData[key][csvIdx] = val;
-        return `<td class="${changed ? "changed" : ""}">${status ? `<span class="badge ${status}">${val}</span>` : val}</td>`;
+        return `<div class="tile${changed ? " changed" : ""}">
+          <div class="tile-label"><span>${TILE_ICONS[csvIdx] || "•"}</span>${headers[j]}</div>
+          <div class="tile-value">${status ? `<span class="badge ${status}">${val}</span>` : val}</div>
+        </div>`;
       }).join("");
 
-      return `
-        <div class="table-container">
-          <table>
-            <tr>${headers.map(h=>`<th>${h}</th>`).join("")}</tr>
-            <tr>${rowHTML}</tr>
-          </table>
-        </div>`;
+      return `<div class="tiles">${tilesHTML}</div>`;
     }
 
     function updateTimeText(id) {
