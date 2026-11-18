@@ -302,7 +302,7 @@
 const MAX_DELAY_MINUTES=30;
 
     // Kolom CSV dari Code.gs (A-I, 9 kolom):
-    // 0 Waktu, 1 Ruangan, 2 Suhu ("22 °C"), 3 Kelembaban, 4 Status,
+    // 0 Waktu, 1 Ruangan, 2 Suhu ("22 °C"), 3 Kelembaban ("55 %"), 4 Status,
     // 5 Status Suhu, 6 Status Kelembaban, 7 RSSI ("-67 dBm"), 8 IP Address
     // Di tabel, kolom Ruangan (1) tidak ditampilkan karena kartu
     // sudah menulis nama ruangannya.
@@ -335,7 +335,8 @@ function getHeaders(key) {
       if (!suhuEl || !cells || cells.length < 7) return;
       // cells[2] sudah "22 °C" dari Sheet, jangan tambah °C lagi
       suhuEl.textContent = cells[2];
-      lembabEl.innerHTML = cells[3] + " <small>%</small>";
+      // cells[3] sudah "55 %" dari Sheet, jangan tambah % lagi
+      lembabEl.textContent = cells[3];
       const status = cells[4] || "-";
       statusEl.textContent = status;
       statusEl.className = "badge " + (status.toLowerCase().includes("alarm") ? "alarm" : "aman");
