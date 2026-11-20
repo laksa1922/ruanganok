@@ -5,256 +5,172 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard Suhu Ruang Operasi</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌡️</text></svg>">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Manrope:wght@400;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
-  <style>
-    /* ===== Glass IoT Dashboard (skill glass-iot-dashboard) ===== */
-    /* Hanya tampilan yang diubah. Logika di bawah (sources, refresh 10 detik,
-       parsing CSV, aturan status, localStorage "theme", semua ID elemen,
-       batas stale 30 menit) sama persis dengan dashboard sebelumnya. */
+<style>
     :root {
-      --bg:#e8f1f4; --text:#0e2229; --muted:#59727b;
-      --card:rgba(255,255,255,.72); --card-border:rgba(255,255,255,.9);
-      --card-shadow:rgba(10,60,80,.14);
-      --tile:rgba(255,255,255,.8); --tile-border:rgba(14,138,154,.16);
-      --accent:#0b5563; --accent-light:#0e8a9a;
-      --glow-a:rgba(14,190,210,.38); --glow-b:rgba(70,110,255,.26); --glow-c:rgba(30,200,150,.26);
-      --ok:#17a673;
+      --bg: #eef3f5; --text: #10262e; --muted: #5b7280;
+      --card: #ffffff; --card-border: #d3dee3;
+      --tile: #f3f7f8; --tile-border: #d3dee3;
+      --accent: #0b5563; --accent-light: #0e8a9a; --ok: #17a673;
     }
     body.dark {
-      --bg:#060d11; --text:#e6f1f4; --muted:#84a0a9;
-      --card:rgba(16,30,37,.72); --card-border:rgba(255,255,255,.07);
-      --card-shadow:rgba(0,0,0,.6);
-      --tile:rgba(255,255,255,.035); --tile-border:rgba(255,255,255,.07);
-      --accent:#e6f1f4; --accent-light:#3cc9d9;
-      --glow-a:rgba(14,190,210,.2); --glow-b:rgba(80,90,255,.18); --glow-c:rgba(20,180,130,.14);
+      --bg: #0c1417; --text: #e6f1f4; --muted: #8aa3ac;
+      --card: #162226; --card-border: #26363c;
+      --tile: #1b2a2f; --tile-border: #26363c;
+      --accent: #e6f1f4; --accent-light: #3cc9d9;
     }
-
     * { box-sizing: border-box; }
     html, body { height: 100%; }
     body {
-      margin: 0; padding: 20px;
-      font-family: "Manrope", "Segoe UI", system-ui, sans-serif;
+      margin: 0; padding: 0 20px 24px; min-height: 100vh;
+      font-family: system-ui, "Segoe UI", Arial, sans-serif;
       background: var(--bg); color: var(--text);
-      transition: background 0.3s, color 0.3s;
     }
-    /* Aurora + grid blueprint */
-    body::before { content:""; position:fixed; inset:0; z-index:-1; background:
-      radial-gradient(40vw 40vw at 8% 0%, var(--glow-a), transparent 70%),
-      radial-gradient(45vw 45vw at 95% 20%, var(--glow-b), transparent 70%),
-      radial-gradient(40vw 40vw at 50% 105%, var(--glow-c), transparent 70%); }
-    body::after { content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
-      background-image: linear-gradient(rgba(14,138,154,.07) 1px, transparent 1px),
-                        linear-gradient(90deg, rgba(14,138,154,.07) 1px, transparent 1px);
-      background-size: 44px 44px;
-      mask-image: linear-gradient(180deg, #000, transparent 70%);
-      -webkit-mask-image: linear-gradient(180deg, #000, transparent 70%); }
-
     .wrap { max-width: 1120px; margin: 0 auto; }
     :focus-visible { outline: 3px solid var(--accent-light); outline-offset: 2px; }
-
-    /* ===== Header ===== */
-    .header { text-align: center; padding: 25px 15px 8px; }
+    .header { text-align: center; padding: 54px 15px 34px; }
     .header h1 {
-      margin: 0; font-family: "Space Grotesk", "Manrope", sans-serif;
-      font-size: clamp(1.8rem, 5vw, 3rem); font-weight: 700;
-      letter-spacing: -0.02em; color: var(--accent);
+      margin: 0; font-size: clamp(1.8rem, 5vw, 3rem); font-weight: 700;
+      letter-spacing: -0.02em; color: var(--accent); line-height: 1.1;
     }
-    .header p { margin: 8px 0 0; font-size: 1em; color: var(--muted); font-style: italic; }
-    .live-pill {
-      display: inline-flex; align-items: center; gap: 8px; margin-top: 12px;
-      padding: 6px 14px; border-radius: 999px; font-size: .85em; font-weight: 700;
-      background: var(--card); border: 1px solid var(--card-border);
-      backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%);
+    .header p { margin: 12px 0 0; font-size: 1.02rem; color: var(--muted); }
+    .live, .live-pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 14px; border-radius: 999px; font-size: 0.8em; font-weight: 700;
+      color: var(--accent-light); background: var(--tile); border: 1px solid var(--tile-border);
+      margin-bottom: 18px;
     }
-    .live-pill::before { content:""; width: 8px; height: 8px; border-radius: 50%;
-      background: #17a673; box-shadow: 0 0 0 0 rgba(23,166,115,.6);
-      animation: ping 1.8s infinite; }
-    @keyframes ping { 0% { box-shadow: 0 0 0 0 rgba(23,166,115,.6); } 70% { box-shadow: 0 0 0 9px rgba(23,166,115,0); } 100% { box-shadow: 0 0 0 0 rgba(23,166,115,0); } }
-
-    .header-actions {
-      display: flex; align-items: center; justify-content: center;
-      gap: 8px; margin-top: 12px;
+    .live i, .live-pill::before {
+      width: 8px; height: 8px; border-radius: 50%; background: var(--ok);
     }
-
+    .live-pill { margin-top: 12px; }
+    .header-actions { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 14px; }
+    .link-ro, .link-pompa {
+      height: 40px; padding: 0 16px; border-radius: 999px; background: var(--accent-light);
+      color: #fff; font-size: 0.85em; font-weight: 700; text-decoration: none;
+      display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+    }
     .summary {
       text-align: center; font-weight: 700; margin: 15px auto 20px; font-size: 1.05em;
       display: table; padding: 10px 18px; border-radius: 999px;
       background: var(--card); border: 1px solid var(--card-border);
-      backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%);
-      box-shadow: 0 12px 30px -18px var(--card-shadow);
     }
-
-    /* ===== Footer ===== */
-    .footer { text-align: center; padding: 15px; margin-top: 30px; font-size: 0.9em; color: var(--muted); }
-
-    /* ===== Tombol ===== */
+    .footer {
+      text-align: center; padding: 22px 15px 6px; margin-top: 34px;
+      font-size: 0.88em; line-height: 1.7; color: var(--muted);
+      border-top: 1px solid var(--tile-border);
+    }
+    .footer b { color: var(--text); font-weight: 700; }
     .toggle-dark, .toggle-full {
-      width: 44px; height: 44px; border-radius: 14px;
-      border: 1px solid var(--card-border); cursor: pointer; font-size: 18px;
+      width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--tile-border);
+      background: var(--card); color: var(--text); font-size: 18px; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      background: var(--card); color: var(--text);
-      backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%);
-      box-shadow: 0 12px 30px -18px var(--card-shadow);
-      transition: transform 0.2s;
     }
-    .toggle-dark:hover { transform: rotate(15deg); }
-    .toggle-full:hover { transform: scale(1.06); }
-    /* Tombol link kembali ke dashboard pompa & tandon (tab yang sama) */
-    .link-pompa {
-      height: 40px; padding: 0 16px; border-radius: 999px;
-      background: var(--accent-light); color: #fff;
-      font-size: 0.85em; font-weight: 700; text-decoration: none;
-      display: inline-flex; align-items: center; gap: 6px;
-      box-shadow: 0 6px 16px -6px var(--accent-light);
-      transition: transform 0.2s; white-space: nowrap;
-    }
-    .link-pompa:hover { transform: scale(1.05); }
-
-    /* ===== Kartu kaca ===== */
     .card {
-      position: relative; background: var(--card); border: 1px solid var(--card-border);
-      border-radius: 22px; box-shadow: 0 24px 50px -24px var(--card-shadow);
-      backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%);
-      padding: 24px; margin-bottom: 22px; overflow: hidden;
-      transition: transform 0.2s, background 0.3s;
+      background: var(--card); border: 1px solid var(--card-border);
+      border-top: 3px solid var(--accent-light); border-radius: 14px;
+      margin-bottom: 22px; padding: 24px; overflow: hidden;
     }
-    .card::before { content:""; position: absolute; left: 0; right: 0; top: 0; height: 3px;
-      background: linear-gradient(90deg, transparent, var(--ok), var(--accent-light), transparent); }
-    .card:hover { transform: translateY(-3px); }
-
     .card-header {
       display: flex; justify-content: space-between; align-items: center;
-      font-family: "Space Grotesk", "Manrope", sans-serif;
       font-weight: 700; font-size: 1.25em; margin-bottom: 8px;
     }
-    .last-update { font-size: 0.9em; color: var(--muted); margin-bottom: 16px; }
-
-    /* ===== Tile ===== */
+    .last-update { display: inline-block; font-size: 0.85em; color: var(--muted); margin-bottom: 18px; font-variant-numeric: tabular-nums; }
+    .table-container { width: 100%; }
     .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
     .tile {
-      padding: 14px 16px 16px; background: var(--tile); border: 1px solid var(--tile-border);
-      border-radius: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0;
+      padding: 14px 16px; background: var(--tile); border: 1px solid var(--tile-border);
+      border-radius: 12px; display: flex; flex-direction: column; gap: 10px; min-width: 0;
     }
-    .tile-label { display: flex; align-items: center; gap: 7px; font-size: .8em; font-weight: 600; color: var(--muted); }
+    .tile-label { display: flex; align-items: center; gap: 7px; font-size: 0.8em; font-weight: 600; color: var(--muted); }
     .tile-value {
-      font-family: "JetBrains Mono", ui-monospace, monospace; font-weight: 600;
-      font-variant-numeric: tabular-nums; overflow-wrap: anywhere; font-size: 1.05em;
+      font-family: ui-monospace, Consolas, monospace; font-size: 1.02em; font-weight: 600;
+      font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
     }
     .tile-value.big { font-size: 1.9em; line-height: 1.1; }
     .big-tiles { margin-bottom: 12px; }
-    @media (max-width: 768px) {
-      .tiles { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-      .tile-value.big { font-size: 1.5em; }
-      body { padding: 14px; }
-      .card { padding: 18px; }
-    }
-
-    /* ===== Badge ===== */
     .badge {
-      padding: 6px 14px 6px 11px; border-radius: 999px; font-weight: 700; font-size: .9em;
+      padding: 6px 14px 6px 11px; border-radius: 999px; font-weight: 700; font-size: 0.9em;
       color: #fff; display: inline-flex; align-items: center; gap: 8px; align-self: flex-start;
     }
-    .badge::before { content:""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
-    .on, .aman          { background: #1f9d57; box-shadow: 0 6px 16px -6px #1f9d57; }
-    .off, .alarm, .panas{ background: #d93a2f; box-shadow: 0 6px 16px -6px #d93a2f; }
-    .rendah             { background: #d93a2f; box-shadow: 0 6px 16px -6px #d93a2f; }
-    .normal, .mcb-normal, .dingin, .lembab { background: #1f6fb5; box-shadow: 0 6px 16px -6px #1f6fb5; }
-    .penuh, .trip, .kering { background: #f2c21b; color: #000; box-shadow: 0 6px 16px -6px #f2c21b; }
-
-    .loader { width: 10px; height: 10px; border-radius: 50%; background: var(--accent-light); animation: pulse 1s infinite; }
-    @keyframes pulse { 0%,100% { transform: scale(1); opacity: .6; } 50% { transform: scale(1.5); opacity: 1; } }
-
+    .badge::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+    .on, .aman { background: #1f9d57; }
+    .off, .alarm, .panas, .rendah { background: #d93a2f; }
+    .normal, .mcb-normal, .dingin, .lembab { background: #1f6fb5; }
+    .penuh, .trip, .kering { background: #f2c21b; color: #000; }
+    .gauge { height: 8px; border-radius: 99px; background: rgba(120,150,160,0.22); overflow: hidden; }
+    .gauge b { display: block; height: 100%; border-radius: 99px; }
+    .gauge.rendah b { width: 22%; background: #d93a2f; }
+    .gauge.normal b { width: 62%; background: #1f6fb5; }
+    .gauge.penuh b { width: 100%; background: #f2c21b; }
+    .loader { width: 10px; height: 10px; border-radius: 50%; background: var(--accent-light); }
     .changed { animation: flashChange 1.5s ease-in-out; }
     @keyframes flashChange {
-      0% { background: rgba(14,190,210,.18); box-shadow: 0 0 0 0 rgba(14,190,210,.6); }
-      50% { background: rgba(14,190,210,.45); box-shadow: 0 0 0 6px rgba(14,190,210,0); }
+      0% { background: rgba(14,190,210,0.18); }
+      50% { background: rgba(14,190,210,0.45); }
       100% { background: var(--tile); }
     }
-
-    .stale-card { border: 2px solid #e53935 !important; box-shadow: 0 0 34px rgba(229,57,53,.35); }
-    .stale-card::before { background: linear-gradient(90deg, transparent, #e53935, transparent); height: 4px; }
-    .stale-update { background: #e53935; color: #fff !important; padding: 10px 14px; border-radius: 12px; font-weight: 700; animation: blinkRed 1s infinite; }
-    @keyframes blinkRed { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
-
-    /* ============================================================
-       PAS DI LAYAR — layar lebar / landscape (PC, laptop, TV)
-       Semua isi muat dalam 100dvh tanpa scroll vertikal.
-       Di HP / portrait, layout lama (bertumpuk + scroll) tetap dipakai.
-       ============================================================ */
+    .stale-card { border: 2px solid #e53935 !important; }
+    .stale-update {
+      background: #e53935; color: #fff !important; padding: 10px 14px;
+      border-radius: 12px; font-weight: 700; line-height: 1.5;
+    }
     @media (min-width: 900px) {
       body { height: 100dvh; overflow: hidden; padding: 0 16px 10px; }
-      /* height:100% (bukan 100dvh) supaya tidak lebih 10px dari body
-         karena padding bawah body — itu yang bikin muncul scroll */
       .wrap { max-width: 1680px; height: 100%; display: flex; flex-direction: column; }
-
-      /* Header jadi satu baris rapat */
       .header {
-        flex: 0 0 auto;
-        display: flex; align-items: center; justify-content: space-between;
-        gap: 16px; text-align: left; padding: 12px 4px 8px;
+        flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
+        gap: 16px; text-align: left; padding: 12px 4px 10px;
       }
       .header-text { min-width: 0; }
+      .live { margin-bottom: 6px; }
       .header h1 { font-size: clamp(1.45rem, 2.2vw, 2rem); }
       .header p { margin: 3px 0 0; font-size: 0.92rem; }
       .live-pill { margin-top: 6px; }
       .header-actions { margin-top: 0; flex: 0 0 auto; }
       .toggle-dark, .toggle-full { width: 40px; height: 40px; }
-
-      /* Summary jadi satu baris pill yang rapat, tetap terbaca */
-      .summary {
-        flex: 0 0 auto; margin: 0 auto 10px; padding: 7px 18px; font-size: 0.98em;
-      }
-
-      /* 2 kartu sejajar, sama tinggi, mengisi sisa layar */
-      .cards { flex: 1 1 auto; min-height: 0; overflow: hidden; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-      .card {
-        margin-bottom: 0; padding: 16px 16px 14px;
-        display: flex; flex-direction: column; min-height: 0;
-      }
-      .card:hover { transform: none; }
+      .summary { flex: 0 0 auto; margin: 0 auto 10px; padding: 7px 18px; font-size: 0.98em; }
+      .cards { flex: 1 1 auto; min-height: 0; overflow: hidden; display: grid; gap: 14px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .cards.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .card { margin-bottom: 0; padding: 16px 16px 14px; display: flex; flex-direction: column; min-height: 0; }
       .card-header { font-size: 1.15em; margin-bottom: 4px; }
       .last-update { margin-bottom: 10px; }
-
-      /* Tile besar suhu/kelembaban tetap menonjol, tapi tidak makan layar */
-      .big-tiles { flex: 0 0 auto; margin-bottom: 10px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .table-container { flex: 1 1 auto; min-height: 0; display: flex; }
+      .tiles { flex: 1; min-height: 0; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); gap: 10px; }
+      .tile { min-height: 0; padding: 10px 12px; gap: 6px; justify-content: center; }
+      .tile-label { font-size: 0.78em; }
+      .tile-value { font-size: 0.98em; }
       .tile-value.big { font-size: clamp(1.5rem, 4.2vh, 2rem); }
-      .tile { padding: 10px 12px; gap: 6px; justify-content: center; }
-
-      /* Tile kecil (Waktu, Status Suhu, Status Kelembaban, RSSI, IP)
-         mengisi sisa tinggi kartu: 3 kolom x 2 baris */
+      .big-tiles { flex: 0 0 auto; margin-bottom: 10px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      #section-lt6 .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       #table-ok1, #table-ok2 { flex: 1 1 auto; min-height: 0; display: flex; }
-      #table-ok1 .tiles, #table-ok2 .tiles {
-        flex: 1; min-height: 0;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        grid-auto-rows: minmax(0, 1fr); gap: 10px;
-      }
-      .tiles, .tile { min-height: 0; }
-
+      #table-ok1 .tiles, #table-ok2 .tiles { flex: 1; min-height: 0; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); gap: 10px; }
+      .badge { font-size: 0.85em; padding: 5px 12px 5px 10px; }
       .footer { flex: 0 0 auto; padding: 8px 4px 2px; margin-top: 10px; line-height: 1.4; }
       .footer br { display: none; }
     }
-
-    /* Laptop pendek (mis. 1366x768): rapatkan lagi */
     @media (min-width: 900px) and (max-height: 800px) {
-      .header { padding: 8px 4px 6px; }
+      .header { padding: 8px 4px; }
       .header h1 { font-size: clamp(1.3rem, 2vw, 1.7rem); }
       .header p { display: none; }
       .summary { margin-bottom: 8px; }
-      .card { padding: 12px 14px 10px; border-radius: 18px; }
+      .card { padding: 12px 14px 10px; }
       .tile-value.big { font-size: clamp(1.35rem, 3.8vh, 1.7rem); }
       .footer { font-size: 0.8em; }
     }
-
-    /* Kalau layarnya sangat pendek, jangan paksa: izinkan scroll */
     @media (min-width: 900px) and (max-height: 540px) {
       body { overflow: auto; height: auto; }
       .wrap { height: auto; }
     }
-
+    @media (max-width: 768px) {
+      body { padding: 0 12px 18px; }
+      .header { padding: 62px 10px 26px; }
+      .card { padding: 18px 14px; }
+      .tiles { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+      .tile { padding: 12px; }
+      .tile-value.big { font-size: 1.5em; }
+    }
     @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after { animation: none !important; transition: none !important; }
+      * { animation: none !important; }
     }
   </style>
 </head>
@@ -275,7 +191,7 @@
   </div>
   <div class="summary" id="summary">Memuat data...</div>
 
-  <main class="cards">
+  <main class="cards two">
   <div class="card" id="section-ok1">
     <div class="card-header">📍 Ruang Operasi 1 <div class="loader" id="loader-ok1"></div></div>
     <div class="last-update" id="update-ok1">Terakhir update: -</div>
